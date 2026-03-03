@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDV/ERP — Painel de Licenças</title>
+<style>
+  :root {
+    --bg:       #0f1117;
+    --bg2:      #1a1d27;
+    --bg3:      #22273a;
+    --border:   #2e3350;
+    --accent:   #4f8ef7;
+    --accent2:  #7c5cbf;
+    --green:    #2dce89;
+    --yellow:   #f4b942;
+    --red:      #f5365c;
+    --text:     #e8eaf6;
+    --muted:    #8892b0;
+    --radius:   10px;
+    --font:     'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  /* ── Layout ── */
+  #app { display: flex; min-height: 100vh; }
+  aside {
+    width: 220px; min-height: 100vh; background: var(--bg2);
+    border-right: 1px solid var(--border); padding: 24px 0;
+    display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0;
+  }
+  .logo { padding: 0 20px 28px; border-bottom: 1px solid var(--border); }
+  .logo h1 { font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
+  .logo p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  nav { flex: 1; padding: 16px 0; }
+  nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px; font-size: 13px; color: var(--muted);
+    text-decoration: none; cursor: pointer; transition: all .15s;
+    border-left: 3px solid transparent;
+  }
+  nav a:hover { color: var(--text); background: var(--bg3); }
+  nav a.active { color: var(--accent); border-left-color: var(--accent); background: var(--bg3); }
+  .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); }
+  .sidebar-footer small { font-size: 11px; color: var(--muted); }
+
+  main { margin-left: 220px; flex: 1; padding: 32px 36px; max-width: 1200px; }
+
+  /* ── Login ── */
+  #login-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .login-box {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 40px; width: 360px;
+  }
+  .login-box h2 { font-size: 20px; margin-bottom: 6px; }
+  .login-box p  { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  /* ── Cards ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .card .val { font-size: 32px; font-weight: 700; line-height: 1; }
+  .card .lbl { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .card.green .val { color: var(--green); }
+  .card.yellow .val { color: var(--yellow); }
+  .card.red .val   { color: var(--red); }
+  .card.blue .val  { color: var(--accent); }
+  .card.purple .val{ color: var(--accent2); }
+
+  /* ── Tabela ── */
+  .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--bg3); padding: 12px 16px; text-align: left;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg3); cursor: pointer; }
+  tbody td { padding: 11px 16px; }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; letter-spacing: .3px;
+  }
+  .badge.ATIVA    { background: #0d3324; color: var(--green); }
+  .badge.PENDENTE { background: #2a2010; color: var(--yellow); }
+  .badge.BLOQUEADA{ background: #2d0f18; color: var(--red); }
+  .badge.TRIAL    { background: #1a1f3a; color: var(--accent); }
+  .badge.EXPIRADA { background: #2a1010; color: #f87; }
+  .badge.BASICO   { background: #0d1f3a; color: var(--accent); }
+  .badge.PRO      { background: #1a1230; color: var(--accent2); }
+  .badge.ENTERPRISE { background: #1a2a10; color: var(--green); }
+
+  /* ── Forms ── */
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 9px 12px; background: var(--bg3);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 13px; font-family: var(--font);
+    outline: none; transition: border .15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .field select option { background: var(--bg3); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* ── Botões ── */
+  .btn {
+    padding: 9px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: none; transition: all .15s; display: inline-flex;
+    align-items: center; gap: 6px;
+  }
+  .btn-primary  { background: var(--accent);  color: #fff; }
+  .btn-primary:hover  { background: #3a7ae0; }
+  .btn-success  { background: var(--green);   color: #0d2a1e; }
+  .btn-success:hover  { background: #25b376; }
+  .btn-danger   { background: var(--red);     color: #fff; }
+  .btn-danger:hover   { background: #d42b50; }
+  .btn-ghost    { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover    { background: var(--border); }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; padding: 20px;
+  }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); width: 100%; max-width: 560px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-header {
+    padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-header h3 { font-size: 16px; }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+  .close-btn { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; line-height: 1; }
+  .close-btn:hover { color: var(--text); }
+
+  /* ── Misc ── */
+  .page-header { margin-bottom: 24px; }
+  .page-header h2 { font-size: 22px; font-weight: 700; }
+  .page-header p  { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+  .search-input {
+    padding: 8px 12px; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 13px; width: 240px; outline: none;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  select.filter-sel {
+    padding: 8px 12px; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 13px; outline: none; cursor: pointer;
+  }
+  .eventos { list-style: none; }
+  .eventos li {
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    font-size: 12px; display: flex; gap: 12px; align-items: flex-start;
+  }
+  .eventos li:last-child { border-bottom: none; }
+  .ev-tipo { font-weight: 700; min-width: 140px; color: var(--accent); }
+  .ev-meta { color: var(--muted); }
+  .chave-display {
+    font-family: 'Courier New', monospace; font-size: 15px; letter-spacing: 1px;
+    background: var(--bg3); padding: 12px 16px; border-radius: 6px;
+    border: 1px solid var(--green); color: var(--green); text-align: center;
+    user-select: all; margin: 12px 0;
+  }
+  .info-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-row .key { color: var(--muted); }
+  .hidden { display: none !important; }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty { padding: 48px; text-align: center; color: var(--muted); font-size: 13px; }
+  .alert {
+    padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 12px;
+  }
+  .alert-err  { background: #2d0f18; border: 1px solid var(--red);    color: #f87; }
+  .alert-ok   { background: #0d3324; border: 1px solid var(--green);  color: var(--green); }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); margin-bottom: 12px; font-weight: 600; }
+  .chart-bars { display: flex; gap: 8px; align-items: flex-end; height: 60px; margin-top: 8px; }
+  .bar { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 4px; opacity: .8; position: relative; }
+  .bar:hover { opacity: 1; }
+  .bar-lbl { font-size: 9px; color: var(--muted); text-align: center; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ── Login ─────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-box">
+    <h2>🔐 Painel de Licenças</h2>
+    <p>PDV/ERP — Acesso administrativo</p>
+    <div class="field">
+      <label>URL do Servidor</label>
+      <input id="inp-url" type="url" placeholder="https://seu-app.onrender.com" />
+    </div>
+    <div class="field">
+      <label>Chave de Admin</label>
+      <input id="inp-key" type="password" placeholder="ADMIN_API_KEY do Render" />
+    </div>
+    <div id="login-err" class="alert alert-err hidden"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="fazerLogin()">
+      Entrar
+    </button>
+  </div>
+</div>
+
+<!-- ── App ───────────────────────────────────────────────── -->
+<div id="app" class="hidden">
+  <aside>
+    <div class="logo">
+      <h1>⚡ PDV/ERP</h1>
+      <p>Gerenciador de Licenças</p>
+    </div>
+    <nav>
+      <a class="active" onclick="ir('dashboard')" id="nav-dashboard">📊 Dashboard</a>
+      <a onclick="ir('licencas')"  id="nav-licencas">🔑 Licenças</a>
+      <a onclick="ir('nova')"      id="nav-nova">➕ Nova Licença</a>
+    </nav>
+    <div class="sidebar-footer">
+      <small id="srv-url-label"></small><br>
+      <small style="cursor:pointer;color:var(--accent)" onclick="sair()">↩ Sair</small>
+    </div>
+  </aside>
+
+  <main>
+    <!-- Dashboard -->
+    <section id="pg-dashboard" class="hidden">
+      <div class="page-header">
+        <h2>Dashboard</h2>
+        <p>Visão geral das licenças em tempo real</p>
+      </div>
+      <div class="cards" id="dash-cards"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <p class="section-title">Por plano</p>
+          <div class="table-wrap">
+            <table><tbody id="tbl-planos"></tbody></table>
+          </div>
+        </div>
+        <div>
+          <p class="section-title">Últimas licenças emitidas</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Cliente</th><th>Plano</th><th>Status</th></tr></thead>
+              <tbody id="tbl-ultimas"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Licenças -->
+    <section id="pg-licencas" class="hidden">
+      <div class="page-header">
+        <h2>Licenças</h2>
+        <p>Gerencie todas as licenças emitidas</p>
+      </div>
+      <div class="toolbar">
+        <input class="search-input" id="inp-busca" placeholder="🔍  Nome, CNPJ, chave..." oninput="filtrar()">
+        <select class="filter-sel" id="sel-status" onchange="filtrar()">
+          <option value="">Todos os status</option>
+          <option value="ATIVA">Ativa</option>
+          <option value="PENDENTE">Pendente</option>
+          <option value="BLOQUEADA">Bloqueada</option>
+          <option value="TRIAL">Trial</option>
+        </select>
+        <select class="filter-sel" id="sel-plano" onchange="filtrar()">
+          <option value="">Todos os planos</option>
+          <option value="TRIAL">Trial</option>
+          <option value="BASICO">Básico</option>
+          <option value="PRO">Pro</option>
+          <option value="ENTERPRISE">Enterprise</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="carregarLicencas()">↺ Atualizar</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th><th>CNPJ</th><th>Plano</th>
+              <th>Status</th><th>Validade</th><th>Emitida em</th><th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-licencas"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Nova Licença -->
+    <section id="pg-nova" class="hidden">
+      <div class="page-header">
+        <h2>Nova Licença</h2>
+        <p>Gerar chave de ativação para um cliente</p>
+      </div>
+      <div style="max-width:560px">
+        <div id="nova-result" class="hidden">
+          <div class="alert alert-ok">✅ Licença gerada com sucesso! Copie a chave abaixo e envie ao cliente.</div>
+          <div class="chave-display" id="chave-gerada"></div>
+          <button class="btn btn-ghost btn-sm" onclick="copiarChave()">📋 Copiar chave</button>
+          <hr style="border-color:var(--border);margin:20px 0">
+        </div>
+        <div class="field">
+          <label>Nome do cliente *</label>
+          <input id="f-nome" type="text" placeholder="Ex: Mercado do João LTDA">
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>CNPJ</label>
+            <input id="f-cnpj" type="text" placeholder="00.000.000/0001-00" oninput="mascaraCNPJ(this)">
+          </div>
+          <div class="field">
+            <label>E-mail</label>
+            <input id="f-email" type="email" placeholder="cliente@email.com">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Plano</label>
+            <select id="f-plano" onchange="atualizarDefaults()">
+              <option value="BASICO">Básico — 3 usuários</option>
+              <option value="PRO">Pro — 10 usuários</option>
+              <option value="ENTERPRISE">Enterprise — ilimitado</option>
+              <option value="TRIAL">Trial — 30 dias grátis</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Máx. usuários</label>
+            <input id="f-maxu" type="number" min="1" value="3">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Validade (dias)</label>
+            <select id="f-validade">
+              <option value="">Sem expiração</option>
+              <option value="30">30 dias</option>
+              <option value="90">90 dias</option>
+              <option value="180">6 meses</option>
+              <option value="365" selected>1 ano</option>
+              <option value="730">2 anos</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Módulos</label>
+            <select id="f-modulos">
+              <option value="">Padrão do plano</option>
+              <option value="basico">Básico (sem fiscal)</option>
+              <option value="completo">Completo (todos)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Observações</label>
+          <textarea id="f-obs" rows="2" placeholder="Notas internas..."></textarea>
+        </div>
+        <div id="nova-err" class="alert alert-err hidden"></div>
+        <button class="btn btn-success" onclick="gerarLicenca()">⚡ Gerar Licença</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ── Modal Detalhe ──────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="modal-detalhe">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-titulo">Detalhes da Licença</h3>
+      <button class="close-btn" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<!-- ── Modal Confirmação ──────────────────────────────────── -->
+<div class="modal-overlay hidden" id="modal-confirm">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 id="confirm-titulo">Confirmar ação</h3>
+      <button class="close-btn" onclick="fecharConfirm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-msg" style="font-size:14px;margin-bottom:16px"></p>
+      <div class="field">
+        <label>Motivo (opcional)</label>
+        <input id="confirm-motivo" type="text" placeholder="Ex: cliente cancelou contrato">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharConfirm()">Cancelar</button>
+      <button class="btn btn-danger" id="confirm-btn-ok" onclick="executarConfirm()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// Estado global
+// ═══════════════════════════════════════════════════════════
+let API  = "";
+let AKEY = "";
+let todasLicencas = [];
+let confirmCallback = null;
+
+// ── Persistência da sessão ─────────────────────────────────
+function salvarSessao() {
+  localStorage.setItem("pdv_api",  API);
+  localStorage.setItem("pdv_akey", AKEY);
+}
+function restaurarSessao() {
+  API  = localStorage.getItem("pdv_api")  || "";
+  AKEY = localStorage.getItem("pdv_akey") || "";
+  if (API && AKEY) {
+    document.getElementById("inp-url").value = API;
+    document.getElementById("inp-key").value = AKEY;
+    iniciarApp();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Auth
+// ═══════════════════════════════════════════════════════════
+async function fazerLogin() {
+  API  = (document.getElementById("inp-url").value || "").replace(/\/$/, "");
+  AKEY = document.getElementById("inp-key").value;
+  const err = document.getElementById("login-err");
+  err.classList.add("hidden");
+
+  if (!API || !AKEY) {
+    err.textContent = "Preencha a URL e a chave de admin.";
+    err.classList.remove("hidden");
+    return;
+  }
+  try {
+    const r = await api("GET", "/api/admin/dashboard");
+    salvarSessao();
+    iniciarApp();
+  } catch(e) {
+    err.textContent = "Falha na conexão ou chave inválida: " + e.message;
+    err.classList.remove("hidden");
+  }
+}
+
+function iniciarApp() {
+  document.getElementById("login-screen").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("srv-url-label").textContent = API.replace("https://","");
+  ir("dashboard");
+}
+
+function sair() {
+  localStorage.removeItem("pdv_api");
+  localStorage.removeItem("pdv_akey");
+  API = AKEY = "";
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("login-screen").classList.remove("hidden");
+}
+
+// ═══════════════════════════════════════════════════════════
+// API helper
+// ═══════════════════════════════════════════════════════════
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { "Content-Type": "application/json", "X-Admin-Key": AKEY },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`${r.status} — ${t}`);
+  }
+  return r.json();
+}
+
+// ═══════════════════════════════════════════════════════════
+// Navegação
+// ═══════════════════════════════════════════════════════════
+function ir(pg) {
+  ["dashboard","licencas","nova"].forEach(p => {
+    document.getElementById("pg-" + p).classList.add("hidden");
+    document.getElementById("nav-" + p).classList.remove("active");
+  });
+  document.getElementById("pg-" + pg).classList.remove("hidden");
+  document.getElementById("nav-" + pg).classList.add("active");
+
+  if (pg === "dashboard") carregarDashboard();
+  if (pg === "licencas")  carregarLicencas();
+  if (pg === "nova") {
+    document.getElementById("nova-result").classList.add("hidden");
+    document.getElementById("nova-err").classList.add("hidden");
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Dashboard
+// ═══════════════════════════════════════════════════════════
+async function carregarDashboard() {
+  try {
+    const d = await api("GET", "/api/admin/dashboard");
+    renderDashboard(d);
+  } catch(e) { console.error(e); }
+}
+
+function renderDashboard(d) {
+  const cards = [
+    { val: d.total,         lbl: "Total de Licenças",   cls: "blue"   },
+    { val: d.ativas,        lbl: "Ativas",              cls: "green"  },
+    { val: d.pendentes,     lbl: "Pendentes",           cls: "yellow" },
+    { val: d.bloqueadas,    lbl: "Bloqueadas",          cls: "red"    },
+    { val: d.expirando_30d, lbl: "Expiram em 30 dias",  cls: "yellow" },
+    { val: d.expiradas,     lbl: "Expiradas",           cls: "red"    },
+  ];
+  document.getElementById("dash-cards").innerHTML = cards.map(c =>
+    `<div class="card ${c.cls}">
+      <div class="val">${c.val}</div>
+      <div class="lbl">${c.lbl}</div>
+    </div>`
+  ).join("");
+
+  document.getElementById("tbl-planos").innerHTML = (d.por_plano || []).map(p =>
+    `<tr>
+      <td><span class="badge ${p.plano}">${p.plano}</span></td>
+      <td style="text-align:right;font-weight:700">${p.n}</td>
+    </tr>`
+  ).join("") || `<tr><td class="empty">Sem dados</td></tr>`;
+
+  document.getElementById("tbl-ultimas").innerHTML = (d.ultimas_licencas || []).map(l =>
+    `<tr>
+      <td>${escHtml(l.cliente_nome || "—")}</td>
+      <td><span class="badge ${l.plano}">${l.plano}</span></td>
+      <td><span class="badge ${l.status}">${l.status}</span></td>
+    </tr>`
+  ).join("") || `<tr><td class="empty" colspan="3">Sem dados</td></tr>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Licenças
+// ═══════════════════════════════════════════════════════════
+async function carregarLicencas() {
+  const tbody = document.getElementById("tbl-licencas");
+  tbody.innerHTML = `<tr><td class="empty" colspan="7"><span class="spin">⟳</span> Carregando...</td></tr>`;
+  try {
+    todasLicencas = await api("GET", "/api/admin/licencas");
+    renderLicencas(todasLicencas);
+  } catch(e) {
+    tbody.innerHTML = `<tr><td class="empty" colspan="7">Erro: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function filtrar() {
+  const busca  = document.getElementById("inp-busca").value.toLowerCase();
+  const status = document.getElementById("sel-status").value;
+  const plano  = document.getElementById("sel-plano").value;
+  const lista  = todasLicencas.filter(l => {
+    const txt = `${l.cliente_nome||""} ${l.cnpj_empresa||""} ${l.chave||""} ${l.cliente_email||""}`.toLowerCase();
+    return (!busca  || txt.includes(busca))
+        && (!status || l.status === status)
+        && (!plano  || l.plano  === plano);
+  });
+  renderLicencas(lista);
+}
+
+function renderLicencas(lista) {
+  const hoje = new Date().toISOString().slice(0,10);
+  const tbody = document.getElementById("tbl-licencas");
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td class="empty" colspan="7">Nenhuma licença encontrada</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map(l => {
+    const exp = l.validade_ate || "";
+    const vencida = exp && exp < hoje;
+    const expLabel = exp
+      ? (vencida ? `<span style="color:var(--red)">⚠ ${exp}</span>` : exp)
+      : "Sem expiração";
+    return `<tr onclick="abrirDetalhe(${l.id})">
+      <td><strong>${escHtml(l.cliente_nome || "—")}</strong>
+          ${l.cliente_email ? `<br><small style="color:var(--muted)">${escHtml(l.cliente_email)}</small>` : ""}
+      </td>
+      <td style="font-family:monospace;font-size:12px">${formatCNPJ(l.cnpj_empresa||"")}</td>
+      <td><span class="badge ${l.plano}">${l.plano}</span></td>
+      <td><span class="badge ${l.status}">${l.status}</span></td>
+      <td style="font-size:12px">${expLabel}</td>
+      <td style="font-size:12px;color:var(--muted)">${(l.emitida_em||"").slice(0,10)}</td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();abrirDetalhe(${l.id})">Detalhes</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+// ═══════════════════════════════════════════════════════════
+// Modal Detalhe
+// ═══════════════════════════════════════════════════════════
+async function abrirDetalhe(lid) {
+  document.getElementById("modal-detalhe").classList.remove("hidden");
+  document.getElementById("modal-body").innerHTML =
+    `<div style="text-align:center;padding:24px"><span class="spin" style="font-size:24px">⟳</span></div>`;
+  document.getElementById("modal-footer").innerHTML = "";
+
+  try {
+    const l = await api("GET", `/api/admin/licencas/${lid}`);
+    renderDetalhe(l);
+  } catch(e) {
+    document.getElementById("modal-body").innerHTML =
+      `<div class="alert alert-err">Erro: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function renderDetalhe(l) {
+  document.getElementById("modal-titulo").textContent =
+    `🔑 ${l.cliente_nome || "Sem nome"} — #${l.id}`;
+
+  const hoje = new Date().toISOString().slice(0,10);
+  const vencida = l.validade_ate && l.validade_ate < hoje;
+
+  document.getElementById("modal-body").innerHTML = `
+    <div class="chave-display">${l.chave}</div>
+    <button class="btn btn-ghost btn-sm" style="margin-bottom:16px" onclick="copiarTexto('${l.chave}')">📋 Copiar chave</button>
+
+    <div class="info-row"><span class="key">Status</span>    <span class="badge ${l.status}">${l.status}</span></div>
+    <div class="info-row"><span class="key">Plano</span>     <span class="badge ${l.plano}">${l.plano}</span></div>
+    <div class="info-row"><span class="key">CNPJ</span>      <span>${formatCNPJ(l.cnpj_empresa||"") || "—"}</span></div>
+    <div class="info-row"><span class="key">E-mail</span>    <span>${escHtml(l.cliente_email||"—")}</span></div>
+    <div class="info-row"><span class="key">Máx. usuários</span><span>${l.max_usuarios||"ilimitado"}</span></div>
+    <div class="info-row"><span class="key">Emitida em</span><span>${(l.emitida_em||"").slice(0,10)}</span></div>
+    <div class="info-row"><span class="key">Validade</span>  <span style="${vencida?"color:var(--red)":""}">${l.validade_ate||"Sem expiração"}${vencida?" ⚠ Expirada":""}</span></div>
+    <div class="info-row"><span class="key">Ativada em</span><span>${(l.ativada_em||"—").slice(0,16)}</span></div>
+    <div class="info-row"><span class="key">Último check</span><span>${(l.ultimo_check||"—").slice(0,16)}</span></div>
+    <div class="info-row"><span class="key">Grace period</span><span>${l.grace_ate||"—"}</span></div>
+    <div class="info-row"><span class="key">Fingerprint</span><span style="font-size:11px;font-family:monospace">${l.fingerprint ? l.fingerprint.slice(0,20)+"…" : "Não ativada"}</span></div>
+    ${l.obs ? `<div class="info-row"><span class="key">Obs.</span><span>${escHtml(l.obs)}</span></div>` : ""}
+
+    <p class="section-title" style="margin-top:20px">Histórico de eventos</p>
+    <ul class="eventos">
+      ${(l.eventos||[]).slice(0,15).map(e => `
+        <li>
+          <span class="ev-tipo">${e.tipo}</span>
+          <div>
+            <span>${escHtml(e.detalhe||"")}</span><br>
+            <span class="ev-meta">${(e.criado_em||"").slice(0,16)} ${e.ip ? "· "+e.ip : ""}</span>
+          </div>
+        </li>`).join("") || "<li style='color:var(--muted);font-size:12px'>Nenhum evento registrado</li>"}
+    </ul>
+  `;
+
+  // Botões de ação
+  const btns = [];
+  if (l.status !== "BLOQUEADA") {
+    btns.push(`<button class="btn btn-danger btn-sm" onclick="confirmarRevogar(${l.id})">🚫 Revogar</button>`);
+  } else {
+    btns.push(`<button class="btn btn-success btn-sm" onclick="confirmarReativar(${l.id})">✅ Reativar</button>`);
+  }
+  if (l.fingerprint) {
+    btns.push(`<button class="btn btn-ghost btn-sm" onclick="confirmarResetMaquina(${l.id})">🖥 Reset máquina</button>`);
+  }
+  btns.push(`<button class="btn btn-ghost btn-sm" onclick="fecharModal()">Fechar</button>`);
+  document.getElementById("modal-footer").innerHTML = btns.join("");
+}
+
+function fecharModal() {
+  document.getElementById("modal-detalhe").classList.add("hidden");
+}
+
+// ═══════════════════════════════════════════════════════════
+// Ações com confirmação
+// ═══════════════════════════════════════════════════════════
+function confirmarRevogar(lid) {
+  abrirConfirm(
+    "🚫 Revogar licença",
+    "O sistema do cliente será bloqueado na próxima verificação online. Continuar?",
+    async (motivo) => {
+      await api("POST", `/api/admin/licencas/${lid}/revogar`, { motivo });
+      fecharModal();
+      fecharConfirm();
+      ir("licencas");
+    }
+  );
+}
+
+function confirmarReativar(lid) {
+  abrirConfirm(
+    "✅ Reativar licença",
+    "A licença voltará a ser válida. Continuar?",
+    async (motivo) => {
+      await api("POST", `/api/admin/licencas/${lid}/reativar`, { motivo });
+      fecharModal();
+      fecharConfirm();
+      ir("licencas");
+    }
+  );
+}
+
+function confirmarResetMaquina(lid) {
+  abrirConfirm(
+    "🖥 Resetar vínculo de máquina",
+    "O cliente poderá reativar em um novo computador. Use quando trocar de PC.",
+    async (motivo) => {
+      await api("POST", `/api/admin/licencas/${lid}/resetar-maquina`, { motivo });
+      fecharModal();
+      fecharConfirm();
+      abrirDetalhe(lid);
+    }
+  );
+}
+
+function abrirConfirm(titulo, msg, callback) {
+  document.getElementById("confirm-titulo").textContent = titulo;
+  document.getElementById("confirm-msg").textContent = msg;
+  document.getElementById("confirm-motivo").value = "";
+  confirmCallback = callback;
+  document.getElementById("modal-confirm").classList.remove("hidden");
+}
+
+async function executarConfirm() {
+  const motivo = document.getElementById("confirm-motivo").value;
+  const btn = document.getElementById("confirm-btn-ok");
+  btn.disabled = true;
+  btn.textContent = "Aguarde…";
+  try {
+    await confirmCallback(motivo);
+  } catch(e) {
+    alert("Erro: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Confirmar";
+  }
+}
+
+function fecharConfirm() {
+  document.getElementById("modal-confirm").classList.add("hidden");
+  confirmCallback = null;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Nova Licença
+// ═══════════════════════════════════════════════════════════
+const PLANO_DEFAULTS = {
+  BASICO:     { maxu: 3  },
+  PRO:        { maxu: 10 },
+  ENTERPRISE: { maxu: 0  },
+  TRIAL:      { maxu: 2  },
+};
+
+function atualizarDefaults() {
+  const p = document.getElementById("f-plano").value;
+  const d = PLANO_DEFAULTS[p] || PLANO_DEFAULTS.BASICO;
+  document.getElementById("f-maxu").value = d.maxu;
+  if (p === "TRIAL") {
+    document.getElementById("f-validade").value = "30";
+  }
+}
+
+async function gerarLicenca() {
+  const err = document.getElementById("nova-err");
+  err.classList.add("hidden");
+
+  const nome = document.getElementById("f-nome").value.trim();
+  if (!nome) {
+    err.textContent = "Nome do cliente é obrigatório.";
+    err.classList.remove("hidden");
+    return;
+  }
+
+  const payload = {
+    cliente_nome:  nome,
+    cliente_email: document.getElementById("f-email").value.trim(),
+    cnpj_empresa:  document.getElementById("f-cnpj").value.replace(/\D/g,""),
+    plano:         document.getElementById("f-plano").value,
+    max_usuarios:  parseInt(document.getElementById("f-maxu").value) || 3,
+    validade_dias: document.getElementById("f-validade").value || null,
+    obs:           document.getElementById("f-obs").value.trim(),
+  };
+
+  const mod = document.getElementById("f-modulos").value;
+  if (mod === "basico")   payload.modulos = ["dashboard","produtos","clientes","fornecedores","estoque"];
+  if (mod === "completo") payload.modulos = ["*"];
+
+  const btn = document.querySelector("#pg-nova .btn-success");
+  btn.disabled = true; btn.textContent = "Gerando…";
+
+  try {
+    const res = await api("POST", "/api/admin/licencas", payload);
+    document.getElementById("chave-gerada").textContent = res.chave;
+    document.getElementById("nova-result").classList.remove("hidden");
+    document.getElementById("nova-err").classList.add("hidden");
+    // Limpar form
+    ["f-nome","f-email","f-cnpj","f-obs"].forEach(id =>
+      document.getElementById(id).value = "");
+    window.scrollTo(0,0);
+  } catch(e) {
+    err.textContent = "Erro ao gerar: " + e.message;
+    err.classList.remove("hidden");
+  } finally {
+    btn.disabled = false; btn.textContent = "⚡ Gerar Licença";
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Utilidades
+// ═══════════════════════════════════════════════════════════
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function formatCNPJ(v) {
+  v = v.replace(/\D/g,"");
+  if (v.length !== 14) return v || "";
+  return v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,"$1.$2.$3/$4-$5");
+}
+function mascaraCNPJ(el) {
+  let v = el.value.replace(/\D/g,"").slice(0,14);
+  if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,"$1.$2.$3/$4-$5");
+  else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d+)$/,"$1.$2.$3/$4");
+  else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d+)$/,"$1.$2.$3");
+  else if (v.length > 2) v = v.replace(/^(\d{2})(\d+)$/,"$1.$2");
+  el.value = v;
+}
+function copiarChave() {
+  copiarTexto(document.getElementById("chave-gerada").textContent);
+}
+function copiarTexto(txt) {
+  navigator.clipboard.writeText(txt).then(() => {
+    alert("Chave copiada para a área de transferência!");
+  });
+}
+
+// ── Fechar modais com Esc ──────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { fecharModal(); fecharConfirm(); }
+});
+
+// ── Init ──────────────────────────────────────────────────
+restaurarSessao();
+</script>
+</body>
+</html>
