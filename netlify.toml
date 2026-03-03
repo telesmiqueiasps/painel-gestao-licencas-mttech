@@ -1,0 +1,12 @@
+# Netlify — painel estático de gerenciamento de licenças
+# Não precisa de build — é HTML puro
+
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Content-Security-Policy = "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.onrender.com"
