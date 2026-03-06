@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PDV/ERP — Painel de Licenças</title>
+<title>MTTech — Painel de Licenças</title>
+<link rel="icon" type="image/x-icon" href="img/logo.ico">
 <style>
   :root {
     --bg:       #0f1117;
@@ -31,8 +32,8 @@
     display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0;
   }
   .logo { padding: 0 20px 28px; border-bottom: 1px solid var(--border); }
-  .logo h1 { font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
-  .logo p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .logo img { width: 160px; display: block; }
+  .logo p  { font-size: 11px; color: var(--muted); margin-top: 8px; }
   nav { flex: 1; padding: 16px 0; }
   nav a {
     display: flex; align-items: center; gap: 10px;
@@ -40,6 +41,8 @@
     text-decoration: none; cursor: pointer; transition: all .15s;
     border-left: 3px solid transparent;
   }
+  nav a img { width: 18px; height: 18px; opacity: .55; transition: opacity .15s; filter: brightness(0) invert(1); }
+  nav a:hover img, nav a.active img { opacity: 1; }
   nav a:hover { color: var(--text); background: var(--bg3); }
   nav a.active { color: var(--accent); border-left-color: var(--accent); background: var(--bg3); }
   .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); }
@@ -203,8 +206,11 @@
 <!-- ── Login ─────────────────────────────────────────────── -->
 <div id="login-screen">
   <div class="login-box">
-    <h2>🔐 Painel de Licenças</h2>
-    <p>PDV/ERP — Acesso administrativo</p>
+    <div style="text-align:center;margin-bottom:24px">
+      <img src="img/logo.png" alt="MTTech" style="height:48px">
+    </div>
+    <h2 style="font-size:18px">Painel de Licenças</h2>
+    <p>MTTech Soluções Empresariais — Acesso administrativo</p>
 
     <div style="background:#0d1a2d;border:1px solid #1e3a5f;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:#7eb8f7;line-height:1.7">
       <strong style="color:#4f8ef7">Como encontrar seus dados:</strong><br>
@@ -234,13 +240,13 @@
 <div id="app" class="hidden">
   <aside>
     <div class="logo">
-      <h1>⚡ PDV/ERP</h1>
+      <img src="img/logo_branca.png" alt="MTTech">
       <p>Gerenciador de Licenças</p>
     </div>
     <nav>
-      <a class="active" onclick="ir('dashboard')" id="nav-dashboard">📊 Dashboard</a>
-      <a onclick="ir('licencas')"  id="nav-licencas">🔑 Licenças</a>
-      <a onclick="ir('nova')"      id="nav-nova">➕ Nova Licença</a>
+      <a class="active" onclick="ir('dashboard')" id="nav-dashboard"><img src="img/dashboard.png" alt="">Dashboard</a>
+      <a onclick="ir('licencas')"  id="nav-licencas"><img src="img/licenca.png" alt="">Licenças</a>
+      <a onclick="ir('nova')"      id="nav-nova"><img src="img/nova_licenca.png" alt="">Nova Licença</a>
     </nav>
     <div class="sidebar-footer">
       <small id="srv-url-label"></small><br>
