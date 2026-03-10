@@ -241,6 +241,7 @@
       <a class="active" onclick="ir('dashboard')" id="nav-dashboard"><img src="img/dashboard.png" alt="">Dashboard</a>
       <a onclick="ir('licencas')"  id="nav-licencas"><img src="img/licenca.png" alt="">Licenças</a>
       <a onclick="ir('nova')"      id="nav-nova"><img src="img/nova_licenca.png" alt="">Nova Licença</a>
+      <a onclick="ir('versoes')"  id="nav-versoes"><img src="img/icone.png" alt="">Versões</a>
     </nav>
     <div class="sidebar-footer">
       <small id="srv-url-label"></small><br>
@@ -309,6 +310,48 @@
             </tr>
           </thead>
           <tbody id="tbl-licencas"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Versões -->
+    <section id="pg-versoes" class="hidden">
+      <div class="page-header">
+        <h2>Versões & Atualizações</h2>
+        <p>Monitore qual versão cada cliente está utilizando</p>
+      </div>
+
+      <!-- Info da versão atual -->
+      <div id="ver-info-box" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:24px">
+        <span style="color:var(--muted);font-size:13px">Carregando informações da versão...</span>
+      </div>
+
+      <!-- Cards resumo -->
+      <div class="cards" id="ver-cards" style="margin-bottom:24px"></div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <select class="filter-sel" id="ver-filtro" onchange="filtrarVersoes()">
+          <option value="">Todos os clientes</option>
+          <option value="ok">Atualizados</option>
+          <option value="desatualizado">Desatualizados</option>
+          <option value="sem_dados">Sem dados</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="carregarVersoes()">↺ Atualizar</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Versão do cliente</th>
+              <th>Versão atual</th>
+              <th>Status</th>
+              <th>Último check</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-versoes"></tbody>
         </table>
       </div>
     </section>
@@ -504,7 +547,7 @@ async function api(method, path, body) {
 // Navegação
 // ═══════════════════════════════════════════════════════════
 function ir(pg) {
-  ["dashboard","licencas","nova"].forEach(p => {
+  ["dashboard","licencas","nova","versoes"].forEach(p => {
     document.getElementById("pg-" + p).classList.add("hidden");
     document.getElementById("nav-" + p).classList.remove("active");
   });
@@ -513,6 +556,7 @@ function ir(pg) {
 
   if (pg === "dashboard") carregarDashboard();
   if (pg === "licencas")  carregarLicencas();
+  if (pg === "versoes")   carregarVersoes();
   if (pg === "nova") {
     document.getElementById("nova-result").classList.add("hidden");
     document.getElementById("nova-err").classList.add("hidden");
@@ -822,6 +866,113 @@ async function gerarLicenca() {
   } finally {
     btn.disabled = false; btn.textContent = "⚡ Gerar Licença";
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Versões & Atualizações
+// ═══════════════════════════════════════════════════════════
+let dadosVersoes  = [];
+let versaoServidor = null;
+
+async function carregarVersoes() {
+  document.getElementById("tbl-versoes").innerHTML =
+    `<tr><td class="empty" colspan="5"><span class="spin">⟳</span> Carregando...</td></tr>`;
+
+  try {
+    const [vInfo, licencas] = await Promise.all([
+      fetch(API + "/versao-atual").then(r => r.json()),
+      api("GET", "/api/admin/licencas")
+    ]);
+    versaoServidor = vInfo.versao;
+    renderVerInfoBox(vInfo);
+    dadosVersoes = licencas;
+    document.getElementById("ver-filtro").value = "";
+    filtrarVersoes();
+  } catch(e) {
+    document.getElementById("ver-info-box").innerHTML =
+      `<div class="alert alert-err">Erro ao carregar: ${escHtml(e.message)}</div>`;
+    document.getElementById("tbl-versoes").innerHTML =
+      `<tr><td class="empty" colspan="5">Falha ao carregar dados</td></tr>`;
+  }
+}
+
+function renderVerInfoBox(v) {
+  const badgeObrig = v.obrigatoria
+    ? `<span class="badge" style="background:#2d0f18;color:var(--red)">Atualização obrigatória</span>`
+    : `<span class="badge" style="background:#0d1f3a;color:var(--accent)">Atualização opcional</span>`;
+
+  const btnDownload = v.url_download
+    ? `<a href="${escHtml(v.url_download)}" target="_blank" class="btn btn-ghost btn-sm" style="margin-left:auto">↓ Download</a>`
+    : "";
+
+  document.getElementById("ver-info-box").innerHTML = `
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Versão atual no servidor</div>
+        <div style="font-size:30px;font-weight:700;color:var(--accent)">v${escHtml(v.versao)}</div>
+      </div>
+      ${badgeObrig}
+      ${btnDownload}
+    </div>
+    ${v.novidades ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)">
+      <strong style="color:var(--text)">Novidades:</strong> ${escHtml(v.novidades)}
+    </div>` : ""}
+  `;
+}
+
+function filtrarVersoes() {
+  const filtro = document.getElementById("ver-filtro").value;
+  let lista = dadosVersoes;
+  if (filtro === "ok")           lista = lista.filter(l => l.versao_app && l.versao_app === versaoServidor);
+  else if (filtro === "desatualizado") lista = lista.filter(l => l.versao_app && l.versao_app !== versaoServidor);
+  else if (filtro === "sem_dados")     lista = lista.filter(l => !l.versao_app);
+  renderTblVersoes(lista);
+}
+
+function renderTblVersoes(lista) {
+  const total         = dadosVersoes.length;
+  const atualizados   = dadosVersoes.filter(l => l.versao_app && l.versao_app === versaoServidor).length;
+  const desatualiz    = dadosVersoes.filter(l => l.versao_app && l.versao_app !== versaoServidor).length;
+  const semDados      = dadosVersoes.filter(l => !l.versao_app).length;
+
+  document.getElementById("ver-cards").innerHTML = [
+    { val: total,       lbl: "Total de clientes",   cls: "blue"   },
+    { val: atualizados, lbl: "Atualizados",          cls: "green"  },
+    { val: desatualiz,  lbl: "Desatualizados",       cls: "yellow" },
+    { val: semDados,    lbl: "Sem dados",            cls: "red"    },
+  ].map(c => `<div class="card ${c.cls}"><div class="val">${c.val}</div><div class="lbl">${c.lbl}</div></div>`).join("");
+
+  const tbody = document.getElementById("tbl-versoes");
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td class="empty" colspan="5">Nenhum resultado</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = lista.map(l => {
+    const vc = l.versao_app || null;
+    const status = !vc ? "sem"
+      : vc === versaoServidor ? "ok" : "desatualizado";
+    const badge = {
+      ok:           `<span class="badge" style="background:#0d3324;color:var(--green)">Atualizado</span>`,
+      desatualizado:`<span class="badge" style="background:#2a2010;color:var(--yellow)">Desatualizado</span>`,
+      sem:          `<span class="badge" style="background:#1a1d27;color:var(--muted);border:1px solid var(--border)">Sem dados</span>`,
+    }[status];
+
+    return `<tr>
+      <td>
+        <strong>${escHtml(l.cliente_nome || "—")}</strong>
+        ${l.cliente_email ? `<br><small style="color:var(--muted)">${escHtml(l.cliente_email)}</small>` : ""}
+      </td>
+      <td style="font-family:monospace;font-size:13px">
+        ${vc ? `v${escHtml(vc)}` : `<span style="color:var(--muted)">—</span>`}
+      </td>
+      <td style="font-family:monospace;font-size:13px;color:var(--accent)">
+        ${versaoServidor ? `v${escHtml(versaoServidor)}` : "—"}
+      </td>
+      <td>${badge}</td>
+      <td style="font-size:12px;color:var(--muted)">${(l.ultimo_check || "—").slice(0,16)}</td>
+    </tr>`;
+  }).join("");
 }
 
 // ═══════════════════════════════════════════════════════════
