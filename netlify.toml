@@ -9,4 +9,4 @@
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
-    Content-Security-Policy = "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.onrender.com"
+    Content-Security-Policy = "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.onrender.com https://cdnjs.cloudflare.com"
