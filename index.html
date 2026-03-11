@@ -201,7 +201,41 @@
   .bar { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 4px; opacity: .8; position: relative; }
   .bar:hover { opacity: 1; }
   .bar-lbl { font-size: 9px; color: var(--muted); text-align: center; margin-top: 4px; }
+
+  /* ── Sub-tabs ── */
+  .sub-tabs { display: flex; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .sub-tab-btn {
+    padding: 9px 18px; background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 13px; font-family: var(--font); font-weight: 500;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s;
+  }
+  .sub-tab-btn:hover { color: var(--text); }
+  .sub-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  /* ── DB Explorer ── */
+  .db-table-cards { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 12px; margin-bottom: 24px; }
+  .db-tcard { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; cursor: pointer; transition: all .15s; text-align: center; }
+  .db-tcard:hover, .db-tcard.active { border-color: var(--accent); background: var(--bg3); }
+  .db-tcard .tc-nome { font-size: 13px; font-weight: 600; }
+  .db-tcard .tc-total { font-size: 24px; font-weight: 700; color: var(--accent); margin: 4px 0 2px; }
+  .db-tcard .tc-lbl { font-size: 11px; color: var(--muted); }
+  td.editavel { cursor: pointer; }
+  td.editavel:hover { background: var(--bg3); }
+  td.nao-editavel { color: var(--muted); font-size: 12px; }
+  .cell-input { width: 100%; background: var(--bg); border: 1px solid var(--accent); border-radius: 4px; color: var(--text); padding: 3px 6px; font-size: 13px; font-family: var(--font); outline: none; }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--text); }
+  th.sort-asc::after { content: " ↑"; color: var(--accent); }
+  th.sort-desc::after { content: " ↓"; color: var(--accent); }
+  .paginacao { display: flex; align-items: center; gap: 10px; padding: 12px 16px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); background: var(--bg2); border-radius: 0 0 var(--radius) var(--radius); }
+  .exemplos-rapidos { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .exemplo-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--muted); padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; transition: all .15s; }
+  .exemplo-btn:hover { color: var(--text); border-color: var(--accent); }
+  .stats-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media(max-width:900px) { .stats-charts { grid-template-columns: 1fr; } }
+  .chart-box { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .chart-box h3 { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 16px; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -243,6 +277,7 @@
       <a onclick="ir('nova')"      id="nav-nova"><img src="img/nova_licenca.png" alt="">Nova Licença</a>
       <a onclick="ir('versoes')"  id="nav-versoes"><img src="img/versao.png" alt="">Versões</a>
       <a onclick="ir('backups')"  id="nav-backups"><img src="img/backup.png" alt="">Backups</a>
+      <a onclick="ir('banco')"    id="nav-banco"><img src="img/licenca.png" alt="">Banco</a>
     </nav>
     <div class="sidebar-footer">
       <small id="srv-url-label"></small><br>
@@ -391,6 +426,75 @@
           </thead>
           <tbody id="tbl-backups"></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- Banco de Dados -->
+    <section id="pg-banco" class="hidden">
+      <div class="page-header">
+        <h2>Banco de Dados</h2>
+        <p>Explorador, consultas e exportação do PostgreSQL</p>
+      </div>
+
+      <div class="sub-tabs">
+        <button class="sub-tab-btn active" id="subtab-tabelas"  onclick="irSubTab('tabelas')">Tabelas</button>
+        <button class="sub-tab-btn"        id="subtab-query"    onclick="irSubTab('query')">Query SQL</button>
+        <button class="sub-tab-btn"        id="subtab-stats"    onclick="irSubTab('stats')">Estatísticas</button>
+        <button class="sub-tab-btn"        id="subtab-exportar" onclick="irSubTab('exportar')">Exportar</button>
+      </div>
+
+      <!-- Sub-aba: Tabelas -->
+      <div id="subpg-tabelas">
+        <div id="db-tabelas-cards" class="db-table-cards"></div>
+        <div id="db-grid-section" class="hidden">
+          <div class="toolbar" style="margin-bottom:12px">
+            <input class="search-input" id="db-busca" placeholder="Buscar em todas as colunas..." oninput="debounceBusca(this.value)">
+            <button class="btn btn-ghost btn-sm" onclick="exportarTabela(dbAtualTabela, this)">⬇ Exportar CSV</button>
+            <button class="btn btn-ghost btn-sm" onclick="fecharGrid()">✕ Fechar</button>
+          </div>
+          <div class="table-wrap" style="overflow-x:auto">
+            <table><thead id="db-thead"></thead><tbody id="db-tbody"></tbody></table>
+          </div>
+          <div class="paginacao">
+            <button class="btn btn-ghost btn-sm" id="db-btn-prev" onclick="dbPagAnterior()">← Anterior</button>
+            <span id="db-pag-info">Página 1</span>
+            <button class="btn btn-ghost btn-sm" id="db-btn-next" onclick="dbPagProxima()">Próxima →</button>
+            <span style="margin-left:auto;font-size:12px" id="db-total-info"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-aba: Query SQL -->
+      <div id="subpg-query" class="hidden">
+        <div class="exemplos-rapidos">
+          <span style="font-size:12px;color:var(--muted)">Exemplos rápidos:</span>
+          <button class="exemplo-btn" data-sql="SELECT * FROM licencas WHERE status='ATIVA' LIMIT 20" onclick="setQueryFromBtn(this)">Licenças ativas</button>
+          <button class="exemplo-btn" data-sql="SELECT * FROM backups ORDER BY criado_em DESC LIMIT 20" onclick="setQueryFromBtn(this)">Últimos backups</button>
+          <button class="exemplo-btn" data-sql="SELECT * FROM eventos WHERE DATE(criado_em)=CURRENT_DATE ORDER BY criado_em DESC" onclick="setQueryFromBtn(this)">Eventos hoje</button>
+          <button class="exemplo-btn" data-sql="SELECT status, COUNT(*) AS total FROM licencas GROUP BY status ORDER BY total DESC" onclick="setQueryFromBtn(this)">Contagem por status</button>
+        </div>
+        <div class="field">
+          <textarea id="db-sql-input" rows="5" placeholder="SELECT * FROM licencas LIMIT 10"
+            onkeydown="dbSqlKeydown(event)"
+            style="font-family:'Courier New',monospace;font-size:13px;resize:vertical"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
+          <button class="btn btn-primary" onclick="executarQuery()">▶ Executar <small style="opacity:.6;font-size:11px">Ctrl+Enter</small></button>
+          <button class="btn btn-ghost" onclick="document.getElementById('db-sql-input').value=''">Limpar</button>
+        </div>
+        <div id="db-query-result"></div>
+      </div>
+
+      <!-- Sub-aba: Estatísticas -->
+      <div id="subpg-stats" class="hidden">
+        <div class="cards" id="db-stats-cards" style="margin-bottom:24px"></div>
+        <div class="stats-charts" id="db-charts"></div>
+      </div>
+
+      <!-- Sub-aba: Exportar -->
+      <div id="subpg-exportar" class="hidden">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Exporte qualquer tabela do banco como arquivo CSV.</p>
+        <div id="db-exportar-lista"></div>
       </div>
     </section>
 
@@ -585,7 +689,7 @@ async function api(method, path, body) {
 // Navegação
 // ═══════════════════════════════════════════════════════════
 function ir(pg) {
-  ["dashboard","licencas","nova","versoes","backups"].forEach(p => {
+  ["dashboard","licencas","nova","versoes","backups","banco"].forEach(p => {
     document.getElementById("pg-" + p).classList.add("hidden");
     document.getElementById("nav-" + p).classList.remove("active");
   });
@@ -596,6 +700,7 @@ function ir(pg) {
   if (pg === "licencas")  carregarLicencas();
   if (pg === "versoes")   carregarVersoes();
   if (pg === "backups")   carregarBackups();
+  if (pg === "banco")     carregarBanco();
   if (pg === "nova") {
     document.getElementById("nova-result").classList.add("hidden");
     document.getElementById("nova-err").classList.add("hidden");
@@ -1097,6 +1202,320 @@ function formatKB(kb) {
   if (kb >= 1048576) return (kb / 1048576).toFixed(1) + " GB";
   if (kb >= 1024)    return (kb / 1024).toFixed(1) + " MB";
   return kb + " KB";
+}
+
+// ═══════════════════════════════════════════════════════════
+// Banco de Dados
+// ═══════════════════════════════════════════════════════════
+let dbAtualTabela = null;
+let dbAtualPagina = 1;
+let dbAtualBusca  = "";
+let dbAtualOrdem  = null;
+let dbAtualDir    = "asc";
+let dbColunas     = [];
+let dbBuscaTimer  = null;
+let dbCharts      = {};
+const DB_BLOQ     = ["id","criado_em","chave_hash"];
+
+function carregarBanco() {
+  irSubTab("tabelas");
+}
+
+function irSubTab(tab) {
+  ["tabelas","query","stats","exportar"].forEach(t => {
+    document.getElementById("subpg-"  + t).classList.add("hidden");
+    document.getElementById("subtab-" + t).classList.remove("active");
+  });
+  document.getElementById("subpg-"  + tab).classList.remove("hidden");
+  document.getElementById("subtab-" + tab).classList.add("active");
+
+  if (tab === "tabelas" && !document.getElementById("db-tabelas-cards").childElementCount)
+    carregarListaTabelas();
+  if (tab === "stats")    carregarEstatisticas();
+  if (tab === "exportar") carregarExportarLista();
+}
+
+// ── Tabelas ───────────────────────────────────────────────
+async function carregarListaTabelas() {
+  const cont = document.getElementById("db-tabelas-cards");
+  cont.innerHTML = `<div style="color:var(--muted);font-size:13px"><span class="spin">⟳</span> Carregando tabelas...</div>`;
+  try {
+    const lista = await api("GET", "/api/admin/db/tabelas");
+    cont.innerHTML = lista.map(t =>
+      `<div class="db-tcard" id="dbcard-${t.tabela}" onclick="abrirTabela('${t.tabela}')">
+        <div class="tc-nome">${escHtml(t.tabela)}</div>
+        <div class="tc-total">${t.total}</div>
+        <div class="tc-lbl">registros</div>
+      </div>`
+    ).join("");
+  } catch(e) {
+    cont.innerHTML = `<div class="alert alert-err">Erro: ${escHtml(e.message)}</div>`;
+  }
+}
+
+async function abrirTabela(nome) {
+  dbAtualTabela = nome;
+  dbAtualPagina = 1;
+  dbAtualBusca  = "";
+  dbAtualOrdem  = null;
+  dbAtualDir    = "asc";
+  document.getElementById("db-busca").value = "";
+  document.querySelectorAll(".db-tcard").forEach(c => c.classList.remove("active"));
+  const card = document.getElementById("dbcard-" + nome);
+  if (card) card.classList.add("active");
+  document.getElementById("db-grid-section").classList.remove("hidden");
+  await carregarDadosTabela();
+}
+
+function fecharGrid() {
+  document.getElementById("db-grid-section").classList.add("hidden");
+  document.querySelectorAll(".db-tcard").forEach(c => c.classList.remove("active"));
+  dbAtualTabela = null;
+}
+
+async function carregarDadosTabela() {
+  const tbody = document.getElementById("db-tbody");
+  tbody.innerHTML = `<tr><td class="empty" colspan="99"><span class="spin">⟳</span> Carregando...</td></tr>`;
+  let url = `/api/admin/db/tabela/${dbAtualTabela}?pagina=${dbAtualPagina}&limite=50`;
+  if (dbAtualBusca) url += `&busca=${encodeURIComponent(dbAtualBusca)}`;
+  if (dbAtualOrdem) url += `&ordem=${encodeURIComponent(dbAtualOrdem)}&direcao=${dbAtualDir}`;
+  try {
+    const res = await api("GET", url);
+    dbColunas = res.colunas || [];
+
+    // Cabeçalho
+    document.getElementById("db-thead").innerHTML = `<tr>${dbColunas.map(c => {
+      const sc = dbAtualOrdem === c ? (dbAtualDir === "asc" ? "sort-asc" : "sort-desc") : "";
+      return `<th class="sortable ${sc}" onclick="ordenarColuna('${escHtml(c)}')">${escHtml(c)}</th>`;
+    }).join("")}</tr>`;
+
+    // Corpo
+    if (!res.registros || !res.registros.length) {
+      tbody.innerHTML = `<tr><td class="empty" colspan="${dbColunas.length}">Nenhum registro encontrado</td></tr>`;
+    } else {
+      tbody.innerHTML = res.registros.map(row => {
+        return `<tr>${dbColunas.map(c => {
+          const val  = row[c];
+          const edit = !DB_BLOQ.includes(c);
+          const disp = val === null || val === undefined ? "" : String(val);
+          const safe = escHtml(disp).replace(/"/g, "&quot;");
+          return `<td class="${edit ? "editavel" : "nao-editavel"}"
+            ${edit ? `data-id="${row.id}" data-campo="${escHtml(c)}" data-val="${safe}"` : ""}
+            title="${safe}"
+            style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+          >${escHtml(disp)}</td>`;
+        }).join("")}</tr>`;
+      }).join("");
+    }
+
+    // Paginação
+    const pt = res.paginas || 1;
+    document.getElementById("db-pag-info").textContent  = `Página ${dbAtualPagina} de ${pt}`;
+    document.getElementById("db-total-info").textContent = `${res.total ?? ""} registros`;
+    document.getElementById("db-btn-prev").disabled = dbAtualPagina <= 1;
+    document.getElementById("db-btn-next").disabled = dbAtualPagina >= pt;
+  } catch(e) {
+    tbody.innerHTML = `<tr><td class="empty" colspan="99">Erro: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+// Delegação de evento para edição inline por duplo clique
+document.addEventListener("dblclick", e => {
+  const td = e.target.closest("td.editavel");
+  if (!td) return;
+  editarCelula(td, parseInt(td.dataset.id), td.dataset.campo, td.dataset.val || "");
+});
+
+function ordenarColuna(col) {
+  dbAtualDir    = dbAtualOrdem === col && dbAtualDir === "asc" ? "desc" : "asc";
+  dbAtualOrdem  = col;
+  dbAtualPagina = 1;
+  carregarDadosTabela();
+}
+
+function debounceBusca(val) {
+  dbAtualBusca = val;
+  clearTimeout(dbBuscaTimer);
+  dbBuscaTimer = setTimeout(() => { dbAtualPagina = 1; carregarDadosTabela(); }, 400);
+}
+
+function dbPagAnterior() { if (dbAtualPagina > 1) { dbAtualPagina--; carregarDadosTabela(); } }
+function dbPagProxima()   { dbAtualPagina++; carregarDadosTabela(); }
+
+function editarCelula(td, id, campo, valorAtual) {
+  if (td.querySelector(".cell-input")) return;
+  const input = document.createElement("input");
+  input.className = "cell-input";
+  input.value = valorAtual;
+  td.textContent = "";
+  td.appendChild(input);
+  input.focus();
+  input.select();
+
+  let salvo = false;
+  input.addEventListener("keydown", async e => {
+    if (e.key === "Enter" && !salvo) {
+      salvo = true;
+      e.preventDefault();
+      const novo = input.value;
+      td.textContent = novo; // otimista
+      td.dataset.val = novo;
+      try {
+        await api("POST", `/api/admin/db/tabela/${dbAtualTabela}/editar`, { id, campo, valor: novo });
+      } catch(err) {
+        td.textContent = valorAtual;
+        td.dataset.val = valorAtual;
+        alert("Erro ao salvar: " + err.message);
+      }
+    }
+    if (e.key === "Escape") { td.textContent = valorAtual; }
+  });
+
+  input.addEventListener("blur", () => {
+    if (!salvo && td.querySelector(".cell-input")) td.textContent = valorAtual;
+  });
+}
+
+// ── Query SQL ─────────────────────────────────────────────
+function dbSqlKeydown(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); executarQuery(); }
+}
+function setQueryFromBtn(btn) { setQuery(btn.dataset.sql || ""); }
+function setQuery(sql) {
+  document.getElementById("db-sql-input").value = sql;
+  irSubTab("query");
+}
+
+async function executarQuery() {
+  const sql     = document.getElementById("db-sql-input").value.trim();
+  const resDiv  = document.getElementById("db-query-result");
+  if (!sql) return;
+  resDiv.innerHTML = `<div style="color:var(--muted);font-size:13px"><span class="spin">⟳</span> Executando...</div>`;
+  try {
+    const res = await api("POST", "/api/admin/db/query", { sql });
+    if (!res.registros || !res.registros.length) {
+      resDiv.innerHTML = `<div class="alert alert-ok">Consulta executada — 0 resultados.</div>`;
+      return;
+    }
+    const cols = res.colunas;
+    resDiv.innerHTML = `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${res.total} registro(s)</div>
+      <div class="table-wrap" style="overflow-x:auto">
+        <table>
+          <thead><tr>${cols.map(c => `<th>${escHtml(c)}</th>`).join("")}</tr></thead>
+          <tbody>${res.registros.map(row =>
+            `<tr>${cols.map(c =>
+              `<td style="white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis">${escHtml(String(row[c] ?? ""))}</td>`
+            ).join("")}</tr>`
+          ).join("")}</tbody>
+        </table>
+      </div>`;
+  } catch(e) {
+    resDiv.innerHTML = `<div class="alert alert-err">Erro: ${escHtml(e.message)}</div>`;
+  }
+}
+
+// ── Estatísticas ──────────────────────────────────────────
+async function carregarEstatisticas() {
+  document.getElementById("db-stats-cards").innerHTML =
+    `<div style="color:var(--muted);font-size:13px"><span class="spin">⟳</span> Carregando...</div>`;
+  document.getElementById("db-charts").innerHTML = "";
+  Object.values(dbCharts).forEach(ch => ch.destroy());
+  dbCharts = {};
+
+  try {
+    const d = await api("GET", "/api/admin/db/estatisticas");
+
+    document.getElementById("db-stats-cards").innerHTML = [
+      { val: d.total_licencas,  lbl: "Total Licenças",  cls: "blue"   },
+      { val: d.licencas_ativas, lbl: "Ativas",          cls: "green"  },
+      { val: d.backups_hoje,    lbl: "Backups Hoje",    cls: "blue"   },
+      { val: d.sem_backup_48h,  lbl: "Sem backup 48h",  cls: "yellow" },
+      { val: d.eventos_hoje,    lbl: "Eventos Hoje",    cls: "purple" },
+    ].map(c => `<div class="card ${c.cls}"><div class="val">${c.val ?? 0}</div><div class="lbl">${c.lbl}</div></div>`).join("");
+
+    document.getElementById("db-charts").innerHTML = `
+      <div class="chart-box"><h3>Licenças por Status</h3><canvas id="ch-status"></canvas></div>
+      <div class="chart-box"><h3>Licenças por Plano</h3><canvas id="ch-plano"></canvas></div>
+      <div class="chart-box"><h3>Backups — últimos 7 dias</h3><canvas id="ch-backups"></canvas></div>
+      <div class="chart-box"><h3>Eventos por tipo — 30 dias</h3><canvas id="ch-eventos"></canvas></div>
+    `;
+
+    const COR = ["#4f8ef7","#2dce89","#f4b942","#f5365c","#7c5cbf","#20c9d6","#ff8c42","#a8e063"];
+    const gridCfg = { color: "#2e3350" };
+    const tickCfg = { color: "#8892b0", font: { size: 11 } };
+
+    const statusD = d.por_status || [];
+    dbCharts.status = new Chart(document.getElementById("ch-status"), {
+      type: "doughnut",
+      data: { labels: statusD.map(r => r.status), datasets: [{ data: statusD.map(r => r.total), backgroundColor: COR, borderWidth: 0 }] },
+      options: { plugins: { legend: { labels: { color: "#8892b0", font: { size: 12 } } } } }
+    });
+
+    const planoD = d.por_plano || [];
+    dbCharts.plano = new Chart(document.getElementById("ch-plano"), {
+      type: "doughnut",
+      data: { labels: planoD.map(r => r.plano), datasets: [{ data: planoD.map(r => r.total), backgroundColor: COR, borderWidth: 0 }] },
+      options: { plugins: { legend: { labels: { color: "#8892b0", font: { size: 12 } } } } }
+    });
+
+    const bkD = (d.backups_por_dia || []).slice().reverse();
+    dbCharts.backups = new Chart(document.getElementById("ch-backups"), {
+      type: "bar",
+      data: { labels: bkD.map(r => r.dia), datasets: [{ data: bkD.map(r => r.total), backgroundColor: "#4f8ef7", borderRadius: 4 }] },
+      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: tickCfg, grid: gridCfg }, y: { ticks: tickCfg, grid: gridCfg } } }
+    });
+
+    const evD = d.eventos_por_tipo || [];
+    dbCharts.eventos = new Chart(document.getElementById("ch-eventos"), {
+      type: "bar",
+      data: { labels: evD.map(r => r.tipo), datasets: [{ data: evD.map(r => r.total), backgroundColor: "#7c5cbf", borderRadius: 4 }] },
+      options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { ticks: tickCfg, grid: gridCfg }, y: { ticks: tickCfg, grid: gridCfg } } }
+    });
+
+  } catch(e) {
+    document.getElementById("db-stats-cards").innerHTML = `<div class="alert alert-err">Erro: ${escHtml(e.message)}</div>`;
+  }
+}
+
+// ── Exportar ──────────────────────────────────────────────
+async function carregarExportarLista() {
+  const cont = document.getElementById("db-exportar-lista");
+  cont.innerHTML = `<div style="color:var(--muted);font-size:13px"><span class="spin">⟳</span> Carregando...</div>`;
+  try {
+    const lista = await api("GET", "/api/admin/db/tabelas");
+    cont.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>Tabela</th><th>Registros</th><th>Ação</th></tr></thead>
+      <tbody>${lista.map(t => `
+        <tr>
+          <td><strong>${escHtml(t.tabela)}</strong></td>
+          <td style="color:var(--muted)">${t.total}</td>
+          <td><button class="btn btn-ghost btn-sm" onclick="exportarTabela('${escHtml(t.tabela)}', this)">⬇ Exportar CSV</button></td>
+        </tr>`).join("")}
+      </tbody></table></div>`;
+  } catch(e) {
+    cont.innerHTML = `<div class="alert alert-err">Erro: ${escHtml(e.message)}</div>`;
+  }
+}
+
+async function exportarTabela(nome, btn) {
+  if (!nome) return;
+  if (btn) { btn.disabled = true; btn.textContent = "Aguarde…"; }
+  try {
+    const resp = await fetch(API + `/api/admin/db/exportar/${nome}`, { headers: { "X-Admin-Key": AKEY } });
+    if (!resp.ok) throw new Error(await resp.text());
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url;
+    a.download = `${nome}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert("Erro ao exportar: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "⬇ Exportar CSV"; }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
