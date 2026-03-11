@@ -242,6 +242,7 @@
       <a onclick="ir('licencas')"  id="nav-licencas"><img src="img/licenca.png" alt="">Licenças</a>
       <a onclick="ir('nova')"      id="nav-nova"><img src="img/nova_licenca.png" alt="">Nova Licença</a>
       <a onclick="ir('versoes')"  id="nav-versoes"><img src="img/icone.png" alt="">Versões</a>
+      <a onclick="ir('backups')"  id="nav-backups"><img src="img/nova_licenca.png" alt="">Backups</a>
     </nav>
     <div class="sidebar-footer">
       <small id="srv-url-label"></small><br>
@@ -352,6 +353,37 @@
             </tr>
           </thead>
           <tbody id="tbl-versoes"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Backups -->
+    <section id="pg-backups" class="hidden">
+      <div class="page-header">
+        <h2>Backups</h2>
+        <p>Histórico de backups por cliente</p>
+      </div>
+
+      <div class="cards" id="bk-cards" style="margin-bottom:24px"></div>
+
+      <div class="toolbar">
+        <select class="filter-sel" id="bk-filtro" onchange="filtrarBackups()">
+          <option value="">Todos os clientes</option>
+          <option value="ok">OK</option>
+          <option value="atrasado">Atrasados</option>
+          <option value="sem_dados">Sem backup</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="carregarBackups()">↺ Atualizar</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th><th>CNPJ</th><th>Último Backup</th><th>Tamanho</th><th>Status</th><th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-backups"></tbody>
         </table>
       </div>
     </section>
@@ -547,7 +579,7 @@ async function api(method, path, body) {
 // Navegação
 // ═══════════════════════════════════════════════════════════
 function ir(pg) {
-  ["dashboard","licencas","nova","versoes"].forEach(p => {
+  ["dashboard","licencas","nova","versoes","backups"].forEach(p => {
     document.getElementById("pg-" + p).classList.add("hidden");
     document.getElementById("nav-" + p).classList.remove("active");
   });
@@ -557,6 +589,7 @@ function ir(pg) {
   if (pg === "dashboard") carregarDashboard();
   if (pg === "licencas")  carregarLicencas();
   if (pg === "versoes")   carregarVersoes();
+  if (pg === "backups")   carregarBackups();
   if (pg === "nova") {
     document.getElementById("nova-result").classList.add("hidden");
     document.getElementById("nova-err").classList.add("hidden");
@@ -973,6 +1006,117 @@ function renderTblVersoes(lista) {
       <td style="font-size:12px;color:var(--muted)">${(l.ultimo_check || "—").slice(0,16)}</td>
     </tr>`;
   }).join("");
+}
+
+// ═══════════════════════════════════════════════════════════
+// Backups
+// ═══════════════════════════════════════════════════════════
+let dadosBackups = [];
+
+async function carregarBackups() {
+  document.getElementById("tbl-backups").innerHTML =
+    `<tr><td class="empty" colspan="6"><span class="spin">⟳</span> Carregando...</td></tr>`;
+  try {
+    const lista = await api("GET", "/api/admin/backups");
+    // Ordena: atrasados/sem dados primeiro, depois por data mais antiga
+    dadosBackups = lista.sort((a, b) => {
+      const sa = statusBackup(a.ultimo_backup);
+      const sb = statusBackup(b.ultimo_backup);
+      const ordem = { atrasado: 0, sem: 1, ok: 2 };
+      if (ordem[sa] !== ordem[sb]) return ordem[sa] - ordem[sb];
+      if (!a.ultimo_backup) return -1;
+      if (!b.ultimo_backup) return  1;
+      return new Date(a.ultimo_backup) - new Date(b.ultimo_backup);
+    });
+    document.getElementById("bk-filtro").value = "";
+    filtrarBackups();
+  } catch(e) {
+    document.getElementById("tbl-backups").innerHTML =
+      `<tr><td class="empty" colspan="6">Erro: ${escHtml(e.message)}</td></tr>`;
+  }
+}
+
+function statusBackup(ultimoBackup) {
+  if (!ultimoBackup) return "sem";
+  const diff = (Date.now() - new Date(ultimoBackup).getTime()) / 36e5; // horas
+  return diff > 48 ? "atrasado" : "ok";
+}
+
+function filtrarBackups() {
+  const filtro = document.getElementById("bk-filtro").value;
+  let lista = dadosBackups;
+  if      (filtro === "ok")       lista = lista.filter(b => statusBackup(b.ultimo_backup) === "ok");
+  else if (filtro === "atrasado") lista = lista.filter(b => statusBackup(b.ultimo_backup) === "atrasado");
+  else if (filtro === "sem_dados")lista = lista.filter(b => !b.ultimo_backup);
+  renderTblBackups(lista);
+}
+
+function renderTblBackups(lista) {
+  const total    = dadosBackups.length;
+  const ok       = dadosBackups.filter(b => statusBackup(b.ultimo_backup) === "ok").length;
+  const atrasado = dadosBackups.filter(b => statusBackup(b.ultimo_backup) === "atrasado").length;
+  const sem      = dadosBackups.filter(b => !b.ultimo_backup).length;
+
+  document.getElementById("bk-cards").innerHTML = [
+    { val: total,    lbl: "Total de clientes", cls: "blue"   },
+    { val: ok,       lbl: "OK",                cls: "green"  },
+    { val: atrasado, lbl: "Atrasados",         cls: "yellow" },
+    { val: sem,      lbl: "Sem backup",        cls: "red"    },
+  ].map(c => `<div class="card ${c.cls}"><div class="val">${c.val}</div><div class="lbl">${c.lbl}</div></div>`).join("");
+
+  const tbody = document.getElementById("tbl-backups");
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td class="empty" colspan="6">Nenhum resultado</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = lista.map(b => {
+    const st = statusBackup(b.ultimo_backup);
+    const badge = st === "ok"
+      ? `<span class="badge" style="background:#0d3324;color:var(--green)">OK</span>`
+      : st === "atrasado"
+      ? `<span class="badge" style="background:#2a2010;color:var(--yellow)">ATRASADO ⚠️</span>`
+      : `<span class="badge" style="background:#2d0f18;color:var(--red)">SEM BACKUP</span>`;
+
+    const dataLabel = b.ultimo_backup
+      ? b.ultimo_backup.slice(0, 16).replace("T", " ")
+      : `<span style="color:var(--muted)">—</span>`;
+
+    return `<tr>
+      <td><strong>${escHtml(b.cliente_nome || "—")}</strong></td>
+      <td style="font-family:monospace;font-size:12px">${formatCNPJ(b.cnpj_empresa || "")}</td>
+      <td style="font-size:12px">${dataLabel}</td>
+      <td style="font-size:12px">${formatBytes(b.tamanho)}</td>
+      <td>${badge}</td>
+      <td>
+        ${b.id ? `<button class="btn btn-ghost btn-sm" onclick="baixarBackup(${b.id}, this)" ${!b.ultimo_backup ? "disabled" : ""}>⬇ Baixar</button>` : "—"}
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+async function baixarBackup(id, btn) {
+  btn.disabled = true;
+  btn.textContent = "Aguarde…";
+  try {
+    const res = await api("GET", `/api/admin/backup/download/${id}`);
+    const url = res.url || res.download_url || res.link;
+    if (url) window.open(url, "_blank");
+    else throw new Error("URL de download não retornada pelo servidor");
+  } catch(e) {
+    alert("Erro ao baixar backup: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "⬇ Baixar";
+  }
+}
+
+function formatBytes(b) {
+  if (!b) return "—";
+  if (b >= 1073741824) return (b / 1073741824).toFixed(1) + " GB";
+  if (b >= 1048576)    return (b / 1048576).toFixed(1) + " MB";
+  if (b >= 1024)       return (b / 1024).toFixed(0) + " KB";
+  return b + " B";
 }
 
 // ═══════════════════════════════════════════════════════════
